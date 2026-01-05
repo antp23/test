@@ -1,0 +1,188 @@
+// Prisma Schema for Workout Tracker App
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DayTemplateType {
+  STRUCTURED
+  ROUTINE_BLOCK
+  REST
+}
+
+enum WorkoutStatus {
+  SCHEDULED
+  COMPLETED
+  PARTIAL
+  SKIPPED
+  RESCHEDULED
+  REST
+}
+
+enum AttachmentType {
+  IMAGE
+  PDF
+}
+
+model User {
+  id              String   @id @default(uuid())
+  name            String
+  email           String   @unique
+  passwordHash    String   @map("password_hash")
+  activePlanId    String?  @map("active_plan_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  activePlan      Plan?              @relation("ActivePlan", fields: [activePlanId], references: [id])
+  createdPlans    Plan[]             @relation("CreatedPlans")
+  routineTemplates RoutineTemplate[]
+  workoutLogs     WorkoutLog[]
+  planProgress    UserPlanProgress[]
+
+  @@map("users")
+}
+
+model Plan {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  version     Int      @default(1)
+  createdById String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  isArchived  Boolean  @default(false) @map("is_archived")
+
+  // Relations
+  creator      User               @relation("CreatedPlans", fields: [createdById], references: [id])
+  phases       Phase[]
+  activeUsers  User[]             @relation("ActivePlan")
+  planProgress UserPlanProgress[]
+
+  @@map("plans")
+}
+
+model Phase {
+  id          String  @id @default(uuid())
+  planId      String  @map("plan_id")
+  name        String
+  order       Int
+  description String?
+
+  // Relations
+  plan         Plan               @relation(fields: [planId], references: [id], onDelete: Cascade)
+  weeks        Week[]
+  planProgress UserPlanProgress[]
+
+  @@map("phases")
+}
+
+model Week {
+  id          String  @id @default(uuid())
+  phaseId     String  @map("phase_id")
+  weekNumber  Int     @map("week_number")
+  isDeload    Boolean @default(false) @map("is_deload")
+  notes       String?
+
+  // Relations
+  phase        Phase              @relation(fields: [phaseId], references: [id], onDelete: Cascade)
+  dayTemplates DayTemplate[]
+  planProgress UserPlanProgress[]
+
+  @@map("weeks")
+}
+
+model DayTemplate {
+  id                 String          @id @default(uuid())
+  weekId             String          @map("week_id")
+  dayNumber          Int             @map("day_number")
+  name               String
+  type               DayTemplateType
+  structuredContent  Json?           @map("structured_content")
+  routineTemplateId  String?         @map("routine_template_id")
+  isOptional         Boolean         @default(false) @map("is_optional")
+
+  // Relations
+  week            Week             @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  routineTemplate RoutineTemplate? @relation(fields: [routineTemplateId], references: [id])
+  workoutLogs     WorkoutLog[]
+
+  @@map("day_templates")
+}
+
+model RoutineTemplate {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachment   Attachment?
+  dayTemplates DayTemplate[]
+
+  @@map("routine_templates")
+}
+
+model Attachment {
+  id                String         @id @default(uuid())
+  routineTemplateId String         @unique @map("routine_template_id")
+  filename          String
+  fileType          AttachmentType @map("file_type")
+  mimeType          String         @map("mime_type")
+  fileSize          Int            @map("file_size")
+  storagePath       String         @map("storage_path")
+  uploadedAt        DateTime       @default(now()) @map("uploaded_at")
+
+  // Relations
+  routineTemplate RoutineTemplate @relation(fields: [routineTemplateId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
+
+model WorkoutLog {
+  id             String        @id @default(uuid())
+  userId         String        @map("user_id")
+  dayTemplateId  String        @map("day_template_id")
+  scheduledDate  DateTime      @map("scheduled_date") @db.Date
+  actualDate     DateTime?     @map("actual_date") @db.Date
+  status         WorkoutStatus
+  loggedAt       DateTime?     @map("logged_at")
+  bodyWeight     Decimal?      @map("body_weight") @db.Decimal(5, 1)
+  energy         Int?
+  sleepHours     Decimal?      @map("sleep_hours") @db.Decimal(4, 1)
+  sessionRpe     Int?          @map("session_rpe")
+  notes          String?
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayTemplate DayTemplate @relation(fields: [dayTemplateId], references: [id])
+
+  @@map("workout_logs")
+}
+
+model UserPlanProgress {
+  id             String   @id @default(uuid())
+  userId         String   @map("user_id")
+  planId         String   @map("plan_id")
+  currentPhaseId String   @map("current_phase_id")
+  currentWeekId  String   @map("current_week_id")
+  startDate      DateTime @map("start_date") @db.Date
+  isActive       Boolean  @default(true) @map("is_active")
+
+  // Relations
+  user         User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan         Plan  @relation(fields: [planId], references: [id])
+  currentPhase Phase @relation(fields: [currentPhaseId], references: [id])
+  currentWeek  Week  @relation(fields: [currentWeekId], references: [id])
+
+  @@map("user_plan_progress")
+}
