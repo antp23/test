@@ -1,0 +1,56 @@
+# Sandbox Environment Configuration for Workout Tracker
+# Run: ./sandbox up
+
+name: workout-tracker
+
+services:
+  database:
+    image: postgres:15-alpine
+    port: 5432
+    environment:
+      POSTGRES_USER: workout
+      POSTGRES_PASSWORD: workout
+      POSTGRES_DB: workout_tracker
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U workout
+      interval: 5s
+      retries: 5
+
+  backend:
+    runtime: node
+    path: ./backend
+    port: 3001
+    node_version: "22"
+    install: npm install
+    build: npx prisma generate && npx tsc
+    start: node dist/server.js
+    environment:
+      DATABASE_URL: postgresql://workout:workout@database:5432/workout_tracker?schema=public
+      JWT_SECRET: sandbox-dev-secret-do-not-use-in-prod
+      JWT_EXPIRES_IN: 7d
+      PORT: "3001"
+      NODE_ENV: development
+      FRONTEND_URL: http://localhost:5173
+    depends_on:
+      database: healthy
+    init:
+      - npx prisma db push --skip-generate
+      - npx tsx src/seed.ts
+
+  frontend:
+    runtime: node
+    path: ./frontend
+    port: 5173
+    node_version: "22"
+    install: npm install
+    build: npm run build
+    start: npx serve dist -l 5173
+    environment:
+      VITE_API_URL: http://localhost:3001
+    depends_on:
+      backend: started
+
+volumes:
+  db_data:

@@ -38,6 +38,9 @@ lerna-debug.log*
 # Prisma
 backend/prisma/migrations
 
+# Sandbox (generated Docker files)
+.sandbox/
+
 # Misc
 .cache
 .temp
