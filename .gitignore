@@ -41,3 +41,14 @@ backend/prisma/migrations
 # Misc
 .cache
 .temp
+
+# Python (lead-gen)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+lead-gen/output/
+lead-gen/data/raw/
+lead-gen/data/enriched/
+lead-gen/data/scored/
+lead-gen/.env
